@@ -1,0 +1,10 @@
+{
+  "name": "gene-atlas",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22"},
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node build.mjs && node preview.mjs"
+  }
+}

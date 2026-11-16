@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gene Atlas — проверка аннотаций</title>
+<style>
+:root{color-scheme:light;--ink:#173425;--muted:#526257;--line:#d7dbd0;--paper:#f8f7f1;--green:#28583a}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 system-ui,sans-serif}header{border-bottom:1px solid var(--line)}.bar,main{max-width:1280px;margin:auto;padding-inline:clamp(18px,5vw,64px)}.bar{min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand,h1,h2{font-family:Georgia,serif}.brand{font-size:24px}main{padding-block:46px 60px}h1{font-size:clamp(36px,6vw,68px);margin:0;line-height:1.08;letter-spacing:-.045em}h2{font-size:25px;margin:0}p{color:var(--muted)}.intro{font-size:18px;margin:12px 0 24px}form,.examples,.pagination{display:flex;gap:10px;align-items:center;flex-wrap:wrap}button,input{font:inherit;border-radius:8px;padding:10px 14px}button{cursor:pointer;background:#fffdf8;color:var(--ink);border:1px solid var(--line)}button:hover:not(:disabled){background:#e9eee3}button:disabled{opacity:.5;cursor:default}input{border:1px solid #aab6a9;background:#fffdf8;flex:1;min-width:140px;max-width:420px}.primary{background:var(--green);color:white;border-color:var(--green);font-weight:650}.primary:hover:not(:disabled){background:#356f4b}.examples{margin-top:12px;color:var(--muted)}.examples button{padding:3px 9px}.panel{margin-top:24px;border:1px solid var(--line);border-radius:14px;background:#fffdf8;overflow:hidden}.panel-head{padding:18px 20px}.wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:620px;text-align:left}th,td{padding:12px 18px;border-top:1px solid var(--line);vertical-align:top}th{background:#eeeee5;font-size:13px}td:first-child{width:35%}td:last-child{width:26%}td small{display:block;color:var(--muted)}a{color:#255d40;text-underline-offset:3px}.state{display:inline-block;background:#f2eee2;border-radius:20px;padding:3px 9px;font-size:12px}.verified{background:#e2efdf;color:#214e31}.pagination{padding:13px 18px;border-top:1px solid var(--line)}.journal{padding:19px 20px;background:#eef1e8}.journal p{margin:7px 0 0}.journal ol{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;padding:0;list-style:none;margin:12px 0 0}.journal li{border-left:2px solid #9bb19c;padding-left:10px;min-width:0}.journal pre{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:15rem;overflow:auto}summary{cursor:pointer}#message{min-height:24px;margin:14px 0 0}.error{color:#9d3925}dialog{width:min(540px,calc(100vw - 32px));border:1px solid var(--line);border-radius:16px;padding:24px;background:#fffdf8;color:var(--ink)}dialog::backdrop{background:#12271d77}.candidate{padding:10px 0;border-top:1px solid var(--line)}button:focus-visible,input:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #398859;outline-offset:3px}[hidden]{display:none!important}@media(max-width:600px){main{padding-top:28px}.bar{min-height:58px}.panel-head,.journal{padding:14px}}
+.summary{background:#eef3e8;border-color:#cbd8c8}.summary p{margin:7px 0}.summary .role-note{font-size:14px}.summary #summary-text{color:var(--ink)}
+.journal ol{display:block;margin-top:18px}.journal li{padding:0 0 16px 18px;position:relative}.journal li::before{content:'';position:absolute;top:6px;left:-5px;width:8px;height:8px;border-radius:50%;background:var(--green)}.journal li p{font-size:13px;margin:1px 0 4px}.journal summary{font-size:13px;color:var(--green)}
+</style>
+<header><div class="bar"><strong class="brand">Gene Atlas</strong><button id="csv" disabled>Скачать CSV ↓</button></div></header>
+<main>
+<h1>Проверка аннотаций гена</h1>
+<p class="intro">Введите ген, чтобы понять, какие записи Ensembl уже привязаны к стандартным терминам HPO и где сопоставление нужно проверить вручную.</p>
+<form id="search"><input id="symbol" aria-label="Символ гена" placeholder="Например, FBN1" maxlength="25" required><button class="primary">Проверить</button></form>
+<div class="examples">Примеры <button type="button">FBN1</button><button type="button">CFTR</button></div>
+<p id="message" role="status"></p>
+<section id="review-summary" class="panel panel-head summary" hidden>
+<h2 id="gene-heading">О гене</h2>
+<p id="gene-description"></p>
+<p id="gene-explanation"></p>
+<small id="gene-note" hidden>Справочное описание функции подготовлено моделью. Ссылка Ensembl ведёт на исходную карточку гена.</small>
+<p id="gene-source"></p>
+<p id="summary-text" class="role-note"></p>
+</section>
+<section id="results" class="panel" hidden>
+<div class="panel-head"><h2 id="heading"></h2><div id="range"></div></div>
+<div class="wrap"><table><thead><tr><th>Запись Ensembl</th><th>Термины HPO</th><th>Статус</th></tr></thead><tbody id="rows"></tbody></table></div>
+
+</section>
+<section class="panel journal"><h2>Как работали агенты</h2><p id="hint">Запустите проверку, чтобы увидеть обмен данными.</p><ol id="events" aria-live="polite"></ol></section>
+</main>
+<dialog id="review"><h2 id="review-title">Выберите термин</h2><div id="candidates"></div><form method="dialog"><button>Закрыть</button></form></dialog>
+<script type="module">
+const get = id => document.getElementById(id);
+const chooseButtons = [...document.querySelectorAll('.examples button')];
+let current;
+let busy = false;
+
+function add(parent, tag, text) {
+  const element = document.createElement(tag);
+  element.textContent = text;
+  parent.append(element);
+  return element;
+}
+function link(parent, label, url) {
+  const anchor = add(parent, 'a', label);
+  anchor.href = url;
+  anchor.target = '_blank';
+  anchor.rel = 'noopener noreferrer';
+}
+function log({from, to, summary, data}) {
+  const box = add(get('events'), 'li', '');
+  add(box, 'strong', summary);
+  add(box, 'p', from + ' → ' + to);
+  const detail = add(box, 'details', '');
+  add(detail, 'summary', 'Данные сообщения');
+  add(detail, 'pre', JSON.stringify(data, null, 2));
+  get('hint').hidden = true;
+}
+function openReview(row) {
+  get('review-title').textContent = row.title;
+  const candidates = get('candidates');
+  candidates.replaceChildren();
+  for (const term of row.terms) {
+    const block = add(candidates, 'div', '');
+    block.className = 'candidate';
+    link(block, term.label + ' · ' + term.id, term.url);
+    if (term.description) add(block, 'p', term.description);
+    const button = add(block, 'button', term.id === row.recommended ? 'Подтвердить предложенный термин' : 'Выбрать термин');
+    button.onclick = () => commitChoice(row, term);
+  }
+  if (row.selected) add(candidates, 'button', 'Снять подтверждение').onclick = () => commitChoice(row, null);
+  get('review').showModal();
+}
+function commitChoice(row, term) {
+  row.selected = term;
+  log({from:'Пользователь',to:'Таблица',summary:term ? 'Термин подтверждён вручную' : 'Подтверждение снято',data:{record:row.title,hpo:term?.id || null}});
+  get('review').close();
+  render();
+}
+function render() {
+  const result = current;
+  get('results').hidden = !result;
+  get('review-summary').hidden = !result?.summary;
+  get('summary-text').textContent = result?.summary || '';
+  const gene = result?.geneProfile;
+  get('gene-heading').textContent = result ? 'О гене ' + result.gene : 'О гене';
+  get('gene-description').textContent = gene?.description || '';
+  get('gene-explanation').textContent = gene?.explanation || '';
+  get('gene-note').hidden = !gene?.explanation;
+  get('gene-source').replaceChildren();
+  if (gene?.url) link(get('gene-source'), 'Карточка гена в Ensembl ↗', gene.url);
+  get('csv').disabled = busy || !result?.rows.length;
+  if (!result) return;
+  get('heading').textContent = 'Аннотации ' + result.gene;
+  get('range').textContent = result.rows.length
+    ? 'Записей: ' + result.total + ' · ' + result.geneId
+    : 'Ensembl не вернул аннотаций.';
+  const table = get('rows');
+  table.replaceChildren();
+  for (const row of result.rows) {
+    const tr = add(table, 'tr', '');
+    const original = add(tr, 'td', '');
+    link(original, row.title, row.url);
+    if (row.source) add(original, 'small', row.source);
+    const terms = add(tr, 'td', '');
+    if (row.ids.length || row.selected) {
+      const shown = row.selected ? [row.selected] : row.terms;
+      for (const term of shown.slice(0, 3)) link(add(terms, 'div', ''), term.label + ' · ' + term.id, term.url);
+      if (shown.length > 3) {
+        const more = add(terms, 'details', '');
+        add(more, 'summary', 'Ещё терминов: ' + (shown.length - 3));
+        for (const term of shown.slice(3)) link(add(more, 'div', ''), term.label + ' · ' + term.id, term.url);
+      }
+      if (row.ids.length > row.terms.length) add(terms, 'small', 'Проверено ' + row.terms.length + ' из ' + row.ids.length + ' ID');
+    }
+    if (!row.ids.length && row.terms.length) {
+      const button = add(terms, 'button', row.selected ? 'Изменить' : 'Выбрать термин →');
+      button.disabled = busy;
+      button.onclick = () => openReview(row);
+    } else if (!row.ids.length) terms.textContent = '—';
+    const state = add(add(tr, 'td', ''), 'span', row.selected ? 'Подтверждено вручную' : row.status);
+    state.className = 'state' + (row.selected || row.status === 'Совпадение по ID' ? ' verified' : '');
+  }
+}
+async function check(symbol) {
+  if (busy) return;
+  current = null;
+  get('events').replaceChildren();
+  get('hint').hidden = false;
+  busy = true;
+  render();
+  get('search').querySelector('button').disabled = true;
+  chooseButtons.forEach(button => { button.disabled = true; });
+  const message = get('message');
+  message.className = '';
+  message.textContent = 'Проверяем ' + symbol + '…';
+  try {
+    const response = await fetch('/audit', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol})});
+    if (!response.ok) throw Error(await response.text());
+    let buffer = '';
+    let result;
+    for await (const chunk of response.body.pipeThrough(new TextDecoderStream())) {
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        const event = JSON.parse(line);
+        if (event.error) throw Error(event.error);
+        if (event.message) {
+          log(event.message);
+          message.textContent = event.message.summary;
+        }
+        if (event.result) result = event.result;
+      }
+    }
+    if (!result) throw Error('Сервер не вернул результат.');
+    current = result;
+    message.textContent = '';
+  } catch (error) {
+    message.className = 'error';
+    message.textContent = error.message;
+  } finally {
+    busy = false;
+    get('search').querySelector('button').disabled = false;
+    chooseButtons.forEach(button => { button.disabled = false; });
+    render();
+  }
+}
+get('search').onsubmit = event => {
+  event.preventDefault();
+  check(get('symbol').value.trim().toUpperCase());
+};
+for (const button of chooseButtons) button.onclick = () => {
+  get('symbol').value = button.textContent;
+  get('search').requestSubmit();
+};
+get('csv').onclick = () => {
+  const rows = [['Ensembl ID','Аннотация','Поставщик','HPO ID в Ensembl','Проверенные HPO ID','Подтверждён вручную','Статус','Ensembl URL','HPO URL']];
+  for (const row of current.rows) rows.push([current.geneId,row.title,row.source,row.ids.join(' | '),
+      row.ids.length ? row.terms.map(term => term.id).join(' | ') : '',row.selected?.id,
+      row.selected ? 'Подтверждено вручную' : row.status,row.url,
+      row.selected?.url || (row.ids.length ? row.terms.map(term => term.url).join(' | ') : '')]);
+  const escape = value => {
+    const text = String(value ?? '');
+    return '"' + (/^[=+\-@\t\r]/.test(text) ? "'" : '') + text.replaceAll('"','""') + '"';
+  };
+  const url = URL.createObjectURL(new Blob(['\uFEFF' + rows.map(row => row.map(escape).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));
+  const download = document.createElement('a');
+  download.href = url;
+  download.download = current.gene + '-annotations.csv';
+  download.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+</script>
+</html>
